@@ -2,6 +2,36 @@
 #include <M5Core2.h>
 #include <Wire.h>
 
+bool button_state = false;
+void init_button();
+void not_push_button();
+void push_button();
+
+void init_button() {
+  M5.Lcd.fillScreen(BLACK);
+  M5.Lcd.fillEllipse(160, 120, 110, 110, LIGHTGREY);
+  not_push_button();
+}
+
+void push_button() {
+  M5.Axp.SetLDOEnable(3, 1);
+
+  M5.Lcd.fillEllipse(160, 120, 90, 90, ORANGE);
+  M5.Lcd.setTextSize(14);
+  M5.Lcd.setTextColor(YELLOW);
+  M5.Lcd.setCursor(80, 95);
+  M5.Lcd.printf("PUSH");
+}
+
+void not_push_button() {
+  M5.Axp.SetLDOEnable(3, 0);
+  M5.Lcd.fillEllipse(160, 120, 90, 90, RED);
+  M5.Lcd.setTextSize(14);
+  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.setCursor(80, 95);
+  M5.Lcd.printf("PUSH");
+}
+
 #include "Adafruit_PWMServoDriver.h"
 #include "MFRC522_I2C.h"
 
@@ -86,31 +116,18 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Starting BLE work!");
 
-  M5.Lcd.begin();
-  M5.Lcd.fillScreen(BLACK);
-  M5.Lcd.setCursor(0, 0);
-  M5.Lcd.setTextColor(YELLOW);
-  M5.Lcd.setTextSize(2);
+  M5.begin();
 
-  M5.Lcd.fillScreen(BLACK);
-  M5.Lcd.setCursor(0, 0);
-  M5.Lcd.println("M5StackFire MFRC522");
+  M5.Lcd.begin();
+  init_button();
 
   Wire.begin();
-  M5.begin(true, true, true, false, kMBusModeInput);
-  Wire1.begin(21, 22);
+  M5.begin();
+  // M5.begin(true, true, true, false, kMBusModeInput);
+  // Wire1.begin(21, 22);
 
   pwm.begin();
   pwm.setPWMFreq(50);
-  M5.Lcd.setCursor(115, 0);
-  M5.Lcd.setTextColor(TFT_GREEN, TFT_BLACK);
-  M5.Lcd.print("Servo2");
-  mfrc522.PCD_Init();   // Init MFRC522
-  ShowReaderDetails();  // Show details of PCD - MFRC522 Card Reader details
-  Serial.println("Scan PICC to see UID, type, and data blocks...");
-  M5.Lcd.println("Scan PICC to see UID, type, and data blocks...");
-
-  mfrc522.PCD_Init();  // Init MFRC522
 
   BLEDevice::init("KisokenC2023");
   pServer = BLEDevice::createServer();
@@ -143,42 +160,32 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  static bool isFirst = true;
-  if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial()) {
-    delay(50);
-    if (!isFirst) setServoPulse(0, 0.5);
-    isFirst = true;
-    // for (int i = 0; i < 16; i++) {
-    // setServoPulse(i, 0.5);
-    // }
-    return;
-  } else {
-    if (isFirst) {
+  TouchPoint_t pos = M5.Touch.getPressPoint();
+  if (pos.x != -1) {
+    if (!button_state) {
+      push_button();
       act1();
       String Stats = "YET";
       while (Stats == "YET") {
-        Stats = String(chrStatus->getValue()[0]);
+        Stats = String(chrStatus->getValue());
         Serial.print("Waiting!! Status: ");
         Serial.println(Stats);
         delay(100);
       }
-
       setServoPulse(0, 2.5);
     }
-    isFirst = false;
+    button_state = true;
+  } else {
+    if (button_state) {
+      not_push_button();
+      setServoPulse(0, 0.5);
+    }
+    button_state = false;
   }
 
   // Now a card is selected. The UID and SAK is in mfrc522.uid.
 
   // Dump UID
-  Serial.print(F("Card UID:"));
-  M5.Lcd.println(" ");
-  for (byte i = 0; i < mfrc522.uid.size; i++) {
-    Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-    Serial.print(mfrc522.uid.uidByte[i], HEX);
-    M5.Lcd.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-    M5.Lcd.print(mfrc522.uid.uidByte[i], HEX);
-  }
   Serial.println();
 
   // for (int i = 0; i < 16; i++) {
@@ -228,57 +235,6 @@ void ShowReaderDetails() {
   }
 }
 
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
+// nyaw
 
-//nyaw
-
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         //n
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
+// n
