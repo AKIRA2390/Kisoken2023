@@ -78,6 +78,11 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire1);
 #define UUIDD "DDDD"
 #define UUIDCOUNT "CC00"
 
+
+#define SushiCatcher 0
+#define SushiLifter 1
+#define SaraSashi 2
+
 MFRC522 mfrc522(0x28);  // Create MFRC522 instance.
 void setServoPulse(uint8_t n, double pulse);
 void servo_angle_write(uint8_t n, int Angle);
@@ -92,24 +97,12 @@ BLECharacteristic *chrB;
 BLECharacteristic *chrC;
 BLECharacteristic *chrD;
 
-void act1() {
-  Serial.println("ACT1");
-  chrCommand->setValue("MOVJ");
-  chrA->setValue(302);
-  chrB->setValue(244);
-  chrC->setValue(34);
-  chrD->setValue(147);
-  chrCommand->notify();
-}
+void JumpArmSync(int X, int Y, int Z, int R);
+void MoveArmSync(int X, int Y, int Z, int R);
 
-void act2() {
-  Serial.println("ACT2");
-  chrCommand->setValue("MOVJ");
-  chrA->setValue(208);
-  chrB->setValue(208);
-  chrC->setValue(34);
-  chrD->setValue(84);
-  chrCommand->notify();
+void act() {
+  MoveArmSync(302, 244, 34, 147);
+  servo_angle_write(0, 180);
 }
 
 void setup() {
@@ -164,21 +157,13 @@ void loop() {
   if (pos.x != -1) {
     if (!button_state) {
       push_button();
-      act1();
-      String Stats = "YET";
-      while (Stats == "YET") {
-        Stats = String(chrStatus->getValue());
-        Serial.print("Waiting!! Status: ");
-        Serial.println(Stats);
-        delay(100);
-      }
-      setServoPulse(0, 2.5);
+      act();
     }
     button_state = true;
   } else {
     if (button_state) {
       not_push_button();
-      setServoPulse(0, 0.5);
+      servo_angle_write(0, 0);
     }
     button_state = false;
   }
@@ -235,6 +220,54 @@ void ShowReaderDetails() {
   }
 }
 
-// nyaw
+void JumpArmSync(int X, int Y, int Z, int R) {
+  Serial.print("Jump Arm:");
+  Serial.print(X);
+  Serial.print(", ");
+  Serial.print(Y);
+  Serial.print(", ");
+  Serial.print(Z);
+  Serial.print(", ");
+  Serial.print(R);
 
-// n
+  chrCommand->setValue("JumpTo");
+  chrA->setValue(X);
+  chrB->setValue(Y);
+  chrC->setValue(Z);
+  chrD->setValue(R);
+  chrCommand->notify();
+
+  String Stats = "YET";
+  while (Stats == "YET") {
+    Stats = String(chrStatus->getValue());
+    Serial.print("Waiting!! Status: ");
+    Serial.println(Stats);
+    delay(100);
+  }
+}
+
+void MoveArmSync(int X, int Y, int Z, int R) {
+  Serial.print("Move Arm:");
+  Serial.print(X);
+  Serial.print(", ");
+  Serial.print(Y);
+  Serial.print(", ");
+  Serial.print(Z);
+  Serial.print(", ");
+  Serial.print(R);
+
+  chrCommand->setValue("GoTo");
+  chrA->setValue(X);
+  chrB->setValue(Y);
+  chrC->setValue(Z);
+  chrD->setValue(R);
+  chrCommand->notify();
+
+  String Stats = "YET";
+  while (Stats == "YET") {
+    Stats = String(chrStatus->getValue());
+    Serial.print("Waiting!! Status: ");
+    Serial.println(Stats);
+    delay(100);
+  }
+}
