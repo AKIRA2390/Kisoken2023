@@ -79,9 +79,12 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire1);
 #define UUIDCOUNT "CC00"
 
 
-#define SushiCatcher 0
-#define SushiLifter 1
-#define SaraSashi 2
+#define Catcher 0
+#define Lifter 1
+#define Sashi 2
+#define CatcherExtend 70
+#define LifterExtend 80
+#define SashiExtend 150
 
 MFRC522 mfrc522(0x28);  // Create MFRC522 instance.
 void setServoPulse(uint8_t n, double pulse);
@@ -101,8 +104,6 @@ void JumpArmSync(int X, int Y, int Z, int R);
 void MoveArmSync(int X, int Y, int Z, int R);
 
 void act() {
-  MoveArmSync(302, 244, 34, 147);
-  servo_angle_write(0, 180);
 }
 
 void setup() {
@@ -164,6 +165,8 @@ void loop() {
     if (button_state) {
       not_push_button();
       servo_angle_write(0, 0);
+      servo_angle_write(1, 0);
+      servo_angle_write(2, 0);
     }
     button_state = false;
   }
