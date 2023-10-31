@@ -76,8 +76,8 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire1);
 #define UUIDB "BBBB"
 #define UUIDC "CCCC"
 #define UUIDD "DDDD"
+#define UUIDE "EEEE"
 #define UUIDCOUNT "CC00"
-
 
 #define Catcher 0
 #define Lifter 1
@@ -99,12 +99,58 @@ BLECharacteristic *chrA;
 BLECharacteristic *chrB;
 BLECharacteristic *chrC;
 BLECharacteristic *chrD;
+BLECharacteristic *chrE;
 
 void JumpArmSync(int X, int Y, int Z, int R);
 void MoveArmSync(int X, int Y, int Z, int R);
+void ArmOrientation(bool IsR);
+
+void InitialPose();
+void PickSushi(int SushiNum);
+void PickSara();
+void PutSushiToSara();
+void PutSushiToLane();
+void DisposeSushi();
+void ResetAllServo() {
+  servo_angle_write(Catcher, 0);
+  servo_angle_write(Lifter, 0);
+  servo_angle_write(Sashi, 0);
+}
 
 void act() {
+  int SushiNum = 0;
+  InitialPose();
+  PickSushi(SushiNum);
+  // PickSara();
+  // PutSushiToSara();
+  // PutSushiToLane();
 }
+void InitialPose() {
+  ArmOrientation(1);
+  JumpArmSync(170, 0, 230, 0);
+ResetAllServo();
+}
+void PickSushi(int SushiNum) {
+  ArmOrientation(1);
+  // JumpArmSync(int(-39 + 52.5 * SushiNum), 290, 52, 90);
+  JumpArmSync(39, 290, 52, 90);
+  servo_angle_write(Lifter, LifterExtend);
+  delay(250);
+  servo_angle_write(Catcher, CatcherExtend);
+  delay(250);
+  delay(250);
+  // servo_angle_write()
+}
+void PickSara() {
+  servo_angle_write(Lifter, 0);
+  delay(250);
+  ArmOrientation(1);
+}
+void PutSushiToSara() { servo_angle_write(Catcher, 0);
+  delay(250);
+ }
+void PutSushiToLane() {}
+void DisposeSushi() {}
 
 void setup() {
   Serial.begin(115200);
@@ -134,13 +180,15 @@ void setup() {
   chrB = pService->createCharacteristic(UUIDB, NIMBLE_PROPERTY::READ);
   chrC = pService->createCharacteristic(UUIDC, NIMBLE_PROPERTY::READ);
   chrD = pService->createCharacteristic(UUIDD, NIMBLE_PROPERTY::READ);
+  chrE = pService->createCharacteristic(UUIDE, NIMBLE_PROPERTY::READ);
 
   chrStatus->setValue("YET");
   chrCommand->setValue("Ping");
   chrA->setValue(0);
   chrB->setValue(0);
   chrC->setValue(0);
-  chrC->setValue(0);
+  chrD->setValue(0);
+  chrE->setValue(0);
   pService->start();
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
@@ -150,6 +198,8 @@ void setup() {
 
   BLEDevice::startAdvertising();
   Serial.println("Characteristic defined! Now you can read it in your phone!");
+
+  ResetAllServo();
 }
 
 void loop() {
@@ -164,9 +214,8 @@ void loop() {
   } else {
     if (button_state) {
       not_push_button();
-      servo_angle_write(0, 0);
-      servo_angle_write(1, 0);
-      servo_angle_write(2, 0);
+      delay(500);
+      InitialPose();
     }
     button_state = false;
   }
@@ -238,6 +287,7 @@ void JumpArmSync(int X, int Y, int Z, int R) {
   chrB->setValue(Y);
   chrC->setValue(Z);
   chrD->setValue(R);
+  delay(10);
   chrCommand->notify();
 
   String Stats = "YET";
@@ -264,6 +314,7 @@ void MoveArmSync(int X, int Y, int Z, int R) {
   chrB->setValue(Y);
   chrC->setValue(Z);
   chrD->setValue(R);
+  delay(10);
   chrCommand->notify();
 
   String Stats = "YET";
@@ -274,3 +325,24 @@ void MoveArmSync(int X, int Y, int Z, int R) {
     delay(100);
   }
 }
+
+void ArmOrientation(bool IsL) {
+  Serial.print("Arm Orientation:");
+  Serial.print(IsL);
+
+  chrCommand->setValue("ArmOrientation");
+  chrE->setValue(IsL);
+  delay(10);
+  chrCommand->notify();  
+
+  bool Stats =false;
+  while (Stats) {
+    Stats = String(chrStatus->getValue());
+    Serial.print("WaitingforArmOrientation!! Status: ");
+    Serial.println(Stats);
+    delay(100);
+  }
+}
+
+
+
