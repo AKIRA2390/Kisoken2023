@@ -128,16 +128,18 @@ void act() {
 void InitialPose() {
   ArmOrientation(1);
   JumpArmSync(170, 0, 230, 0);
-ResetAllServo();
+  ResetAllServo();
 }
 void PickSushi(int SushiNum) {
   ArmOrientation(1);
   // JumpArmSync(int(-39 + 52.5 * SushiNum), 290, 52, 90);
   JumpArmSync(39, 290, 52, 90);
+  M5.Lcd.fillScreen(RED);
+  servo_angle_write(Sashi, 0);
+  delay(250);
   servo_angle_write(Lifter, LifterExtend);
   delay(250);
   servo_angle_write(Catcher, CatcherExtend);
-  delay(250);
   delay(250);
   // servo_angle_write()
 }
@@ -146,9 +148,10 @@ void PickSara() {
   delay(250);
   ArmOrientation(1);
 }
-void PutSushiToSara() { servo_angle_write(Catcher, 0);
+void PutSushiToSara() {
+  servo_angle_write(Catcher, 0);
   delay(250);
- }
+}
 void PutSushiToLane() {}
 void DisposeSushi() {}
 
@@ -297,6 +300,7 @@ void JumpArmSync(int X, int Y, int Z, int R) {
     Serial.println(Stats);
     delay(100);
   }
+  chrStatus->setValue("YET");
 }
 
 void MoveArmSync(int X, int Y, int Z, int R) {
@@ -324,6 +328,7 @@ void MoveArmSync(int X, int Y, int Z, int R) {
     Serial.println(Stats);
     delay(100);
   }
+  chrStatus->setValue("YET");
 }
 
 void ArmOrientation(bool IsL) {
@@ -333,16 +338,14 @@ void ArmOrientation(bool IsL) {
   chrCommand->setValue("ArmOrientation");
   chrE->setValue(IsL);
   delay(10);
-  chrCommand->notify();  
+  chrCommand->notify();
 
-  bool Stats =false;
+  bool Stats = false;
   while (Stats) {
     Stats = String(chrStatus->getValue());
     Serial.print("WaitingforArmOrientation!! Status: ");
     Serial.println(Stats);
     delay(100);
   }
+  chrStatus->setValue("YET");
 }
-
-
-
