@@ -62,7 +62,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire1);
   500  // This is the rounded 'minimum' microsecond length based on the minimum
        // pulse of 102
 #define USMAX \
-  2500  // This is the rounded 'maximum' microsecond length based on the maximum
+  5000  // This is the rounded 'maximum' microsecond length based on the maximum
         // pulse of 512
 #define SERVO_FREQ 50  // Analog servos run at ~50 Hz updates
 
@@ -78,6 +78,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire1);
 #define UUIDD "DDDD"
 #define UUIDE "EEEE"
 #define UUIDCOUNT "CC00"
+#define UUIDDISPOSE "DD00"
 
 #define Catcher 0
 #define Lifter 1
@@ -95,6 +96,7 @@ BLEServer *pServer;
 BLEService *pService;
 BLECharacteristic *chrStatus;
 BLECharacteristic *chrCommand;
+BLECharacteristic *chrDispose;
 BLECharacteristic *chrA;
 BLECharacteristic *chrB;
 BLECharacteristic *chrC;
@@ -110,6 +112,7 @@ void PickSushi(int SushiNum);
 void PickSara();
 void PutSushiToSara();
 void PutSushiToLane();
+void CheckDispose();
 void DisposeSushi();
 void ResetAllServo() {
   servo_angle_write(Catcher, 0);
@@ -121,39 +124,80 @@ void act() {
   int SushiNum = 0;
   InitialPose();
   PickSushi(SushiNum);
-  // PickSara();
-  // PutSushiToSara();
-  // PutSushiToLane();
+  PickSara();
+  PutSushiToSara();
+  PutSushiToLane();
+  // DisposeSushi();
+}
+
+void dispose() {
+  InitialPose();
+  DisposeSushi();
+  InitialPose();
 }
 void InitialPose() {
   ArmOrientation(1);
-  JumpArmSync(170, 0, 230, 0);
+  JumpArmSync(170, 0, 230, 0);  // 初期位置くん
   ResetAllServo();
 }
 void PickSushi(int SushiNum) {
   ArmOrientation(1);
   // JumpArmSync(int(-39 + 52.5 * SushiNum), 290, 52, 90);
-  JumpArmSync(39, 290, 52, 90);
-  M5.Lcd.fillScreen(RED);
+  JumpArmSync(int(-39 + 52.5 * SushiNum), 300, 52, 90);
+  // JumpArmSync(39, 290, 52, 90);
+  // M5.Lcd.fillScreen(RED);
   servo_angle_write(Sashi, 0);
-  delay(250);
+  delay(500);
   servo_angle_write(Lifter, LifterExtend);
-  delay(250);
+  delay(500);
   servo_angle_write(Catcher, CatcherExtend);
-  delay(250);
+  delay(500);
   // servo_angle_write()
 }
 void PickSara() {
   servo_angle_write(Lifter, 0);
-  delay(250);
-  ArmOrientation(1);
+  delay(500);
+  ArmOrientation(0);
+  JumpArmSync(219, 309, 209, 100);  // 皿サーバー
+  ArmOrientation(0);
+  MoveArmSync(219, -203, 209, 100);  // 皿サーバー
+  ArmOrientation(0);
+  JumpArmSync(206, -203, 58, -180);  // 皿サーバー
+  servo_angle_write(Sashi, SashiExtend);
+  delay(500);
 }
 void PutSushiToSara() {
   servo_angle_write(Catcher, 0);
-  delay(250);
+  delay(500);
 }
-void PutSushiToLane() {}
-void DisposeSushi() {}
+void PutSushiToLane() {
+  ArmOrientation(1);
+  JumpArmSync(370, -72, 122, -270);
+  servo_angle_write(Sashi, 0);
+  delay(500);
+}
+void CheckDispose() {
+  String ifDispose = String(chrDispose->getValue());
+
+  if (ifDispose == "DISPOSE") {
+    DisposeSushi();
+    chrDispose->setValue("NO");
+  }
+}
+
+void DisposeSushi() {
+  servo_angle_write(Catcher, 0);
+  servo_angle_write(Lifter, 0);
+  delay(500);
+  ArmOrientation(1);
+  MoveArmSync(368, 11, 173, 90);
+  servo_angle_write(Sashi, SashiExtend);
+  delay(500);
+  ArmOrientation(0);
+  JumpArmSync(127, -346, 166, -90);
+  servo_angle_write(Sashi, 0);
+  delay(500);
+}
 
 void setup() {
   Serial.begin(115200);
@@ -179,6 +223,8 @@ void setup() {
       UUIDSTATS, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ);
   chrCommand = pService->createCharacteristic(
       UUIDCommand, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+  chrDispose =
+      pService->createCharacteristic(UUIDDISPOSE, NIMBLE_PROPERTY::WRITE);
   chrA = pService->createCharacteristic(UUIDA, NIMBLE_PROPERTY::READ);
   chrB = pService->createCharacteristic(UUIDB, NIMBLE_PROPERTY::READ);
   chrC = pService->createCharacteristic(UUIDC, NIMBLE_PROPERTY::READ);
@@ -187,6 +233,7 @@ void setup() {
 
   chrStatus->setValue("YET");
   chrCommand->setValue("Ping");
+  chrDispose->setValue("NO");
   chrA->setValue(0);
   chrB->setValue(0);
   chrC->setValue(0);
@@ -222,7 +269,7 @@ void loop() {
     }
     button_state = false;
   }
-
+  CheckDispose();
   // Now a card is selected. The UID and SAK is in mfrc522.uid.
 
   // Dump UID
