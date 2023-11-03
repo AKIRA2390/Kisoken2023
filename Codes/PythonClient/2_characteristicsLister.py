@@ -23,7 +23,7 @@ async def main(address):
           print('    descriptor', desc)
 
 if __name__ == "__main__":
-  address =  'D4:D4:DA:5C:A1:E6'  # Replace this with the actual device address
+  address =  'D4:D4:DA:5C:A4:86'  # Replace this with the actual device address
 
   print('address:', address)
   asyncio.run(main(address))
