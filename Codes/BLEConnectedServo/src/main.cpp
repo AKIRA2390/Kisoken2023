@@ -66,11 +66,9 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire1);
         // pulse of 512
 #define SERVO_FREQ 50  // Analog servos run at ~50 Hz updates
 
-#define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
-#define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
-
 #define svcKisoken "BABE"
 #define UUIDSTATS "0000"
+#define UUIDOrder "00DD"
 #define UUIDCommand "CCDD"
 #define UUIDA "AAAA"
 #define UUIDB "BBBB"
@@ -97,17 +95,31 @@ BLEService *pService;
 BLECharacteristic *chrStatus;
 BLECharacteristic *chrCommand;
 BLECharacteristic *chrDispose;
+BLECharacteristic *chrOrder;
 BLECharacteristic *chrA;
 BLECharacteristic *chrB;
 BLECharacteristic *chrC;
 BLECharacteristic *chrD;
 BLECharacteristic *chrE;
 
+class MyServerCallbacks : public BLEServerCallbacks {
+ public:
+  void onConnect(BLEServer *pServer) {
+    Serial.println("クライアントが接続しました");
+    NimBLEDevice::startAdvertising();
+  }
+
+  void onDisconnect(BLEServer *pServer) {
+    Serial.println("クライアントが切断されました");
+  }
+};
+
 void JumpArmSync(int X, int Y, int Z, int R);
 void MoveArmSync(int X, int Y, int Z, int R);
 void ArmOrientation(bool IsR);
 
 void InitialPose();
+void CheckOrder();
 void PickSushi(int SushiNum);
 void PickSara();
 void PutSushiToSara();
@@ -120,8 +132,41 @@ void ResetAllServo() {
   servo_angle_write(Sashi, 0);
 }
 
-void act() {
-  int SushiNum = 0;
+void ServoTest() {
+  ResetAllServo();
+  // Pick Sushi
+  servo_angle_write(Sashi, 0);
+  delay(500);
+  servo_angle_write(Lifter, LifterExtend);
+  delay(500);
+  servo_angle_write(Catcher, CatcherExtend);
+  delay(500);
+  // Pick Sara
+  servo_angle_write(Lifter, 0);
+  delay(500);
+  servo_angle_write(Sashi, SashiExtend);
+  delay(500);
+  // Put Sushi To Sara
+
+  servo_angle_write(Catcher, 0);
+  delay(500);
+
+  // Put Sushi To Lane
+  servo_angle_write(Sashi, 0);
+  delay(2000);
+
+  // Dispose Sushi
+  servo_angle_write(Catcher, 0);
+  servo_angle_write(Lifter, 0);
+  delay(500);
+  servo_angle_write(Sashi, SashiExtend);
+  delay(500);
+  servo_angle_write(Sashi, 0);
+  delay(500);
+}
+
+void act(int SushiNum) {
+  // int SushiNum = 3;
   InitialPose();
   PickSushi(SushiNum);
   PickSara();
@@ -130,7 +175,7 @@ void act() {
   // DisposeSushi();
 }
 
-void dispose() {
+void Dispose() {
   InitialPose();
   DisposeSushi();
   InitialPose();
@@ -139,6 +184,15 @@ void InitialPose() {
   ArmOrientation(1);
   JumpArmSync(170, 0, 230, 0);  // 初期位置くん
   ResetAllServo();
+}
+
+void CheckDispose() {
+  int OrderVal = chrOrder->getValue();
+  Serial.print("ifDispose");
+  Serial.println(OrderVal);
+  if (OrderVal != -1) {
+    act(OrderVal) chrDispose->setValue(-1);
+  }
 }
 void PickSushi(int SushiNum) {
   ArmOrientation(1);
@@ -175,12 +229,17 @@ void PutSushiToLane() {
   JumpArmSync(370, -72, 122, -270);
   servo_angle_write(Sashi, 0);
   delay(500);
+  ArmOrientation(1);
+  MoveArmSync(370, -72, 230, -270);
+  ArmOrientation(1);
+  JumpArmSync(170, 0, 230, -270);  // 初期位置くん
 }
 void CheckDispose() {
   String ifDispose = String(chrDispose->getValue());
-
+  Serial.print("ifDispose");
+  Serial.println(ifDispose);
   if (ifDispose == "DISPOSE") {
-    DisposeSushi();
+    Dispose();
     chrDispose->setValue("NO");
   }
 }
@@ -197,6 +256,7 @@ void DisposeSushi() {
   JumpArmSync(127, -346, 166, -90);
   servo_angle_write(Sashi, 0);
   delay(500);
+  InitialPose();
 }
 
 void setup() {
@@ -218,6 +278,7 @@ void setup() {
 
   BLEDevice::init("KisokenC2023");
   pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new MyServerCallbacks());
   pService = pServer->createService(svcKisoken);
   chrStatus = pService->createCharacteristic(
       UUIDSTATS, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ);
@@ -225,6 +286,7 @@ void setup() {
       UUIDCommand, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
   chrDispose =
       pService->createCharacteristic(UUIDDISPOSE, NIMBLE_PROPERTY::WRITE);
+  chrOrder = pService->createCharacteristic(UUIDOrder, NIMBLE_PROPERTY::WRITE);
   chrA = pService->createCharacteristic(UUIDA, NIMBLE_PROPERTY::READ);
   chrB = pService->createCharacteristic(UUIDB, NIMBLE_PROPERTY::READ);
   chrC = pService->createCharacteristic(UUIDC, NIMBLE_PROPERTY::READ);
@@ -234,6 +296,7 @@ void setup() {
   chrStatus->setValue("YET");
   chrCommand->setValue("Ping");
   chrDispose->setValue("NO");
+  chrDispose->setValue(0);
   chrA->setValue(0);
   chrB->setValue(0);
   chrC->setValue(0);
@@ -241,7 +304,7 @@ void setup() {
   chrE->setValue(0);
   pService->start();
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-  pAdvertising->addServiceUUID(SERVICE_UUID);
+  pAdvertising->addServiceUUID(svcKisoken);
   pAdvertising->setScanResponse(true);
   pAdvertising->setMinPreferred(0x06);
   pAdvertising->setMaxPreferred(0x12);
@@ -258,7 +321,8 @@ void loop() {
   if (pos.x != -1) {
     if (!button_state) {
       push_button();
-      act();
+      // act();
+      ServoTest();
     }
     button_state = true;
   } else {
@@ -372,27 +436,4 @@ void MoveArmSync(int X, int Y, int Z, int R) {
   while (Stats == "YET") {
     Stats = String(chrStatus->getValue());
     Serial.print("Waiting!! Status: ");
-    Serial.println(Stats);
-    delay(100);
-  }
-  chrStatus->setValue("YET");
-}
-
-void ArmOrientation(bool IsL) {
-  Serial.print("Arm Orientation:");
-  Serial.print(IsL);
-
-  chrCommand->setValue("ArmOrientation");
-  chrE->setValue(IsL);
-  delay(10);
-  chrCommand->notify();
-
-  bool Stats = false;
-  while (Stats) {
-    Stats = String(chrStatus->getValue());
-    Serial.print("WaitingforArmOrientation!! Status: ");
-    Serial.println(Stats);
-    delay(100);
-  }
-  chrStatus->setValue("YET");
-}
+    Serial.println(Sta
