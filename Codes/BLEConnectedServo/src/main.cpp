@@ -62,7 +62,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire1);
   500  // This is the rounded 'minimum' microsecond length based on the minimum
        // pulse of 102
 #define USMAX \
-  5000  // This is the rounded 'maximum' microsecond length based on the maximum
+  3000  // This is the rounded 'maximum' microsecond length based on the maximum
         // pulse of 512
 #define SERVO_FREQ 50  // Analog servos run at ~50 Hz updates
 
@@ -134,6 +134,7 @@ void ResetAllServo() {
 
 void ServoTest() {
   ResetAllServo();
+
   // Pick Sushi
   servo_angle_write(Sashi, 0);
   delay(500);
@@ -141,41 +142,46 @@ void ServoTest() {
   delay(500);
   servo_angle_write(Catcher, CatcherExtend);
   delay(500);
-  // Pick Sara
   servo_angle_write(Lifter, 0);
-  delay(500);
+  delay(3000);
+  // Pick Sara
   servo_angle_write(Sashi, SashiExtend);
-  delay(500);
+  delay(3000);
   // Put Sushi To Sara
 
+  servo_angle_write(Lifter, 40);
+  delay(500);
   servo_angle_write(Catcher, 0);
   delay(500);
+  servo_angle_write(Lifter, 0);
+  delay(3000);
 
   // Put Sushi To Lane
   servo_angle_write(Sashi, 0);
-  delay(2000);
+  delay(3000);
 
   // Dispose Sushi
-  servo_angle_write(Catcher, 0);
-  servo_angle_write(Lifter, 0);
-  delay(500);
-  servo_angle_write(Sashi, SashiExtend);
-  delay(500);
-  servo_angle_write(Sashi, 0);
-  delay(500);
+  // servo_angle_write(Catcher, 0);
+  // servo_angle_write(Lifter, 0);
+  // delay(500);
+  // servo_angle_write(Sashi, SashiExtend);
+  // delay(3000);
+  // servo_angle_write(Sashi, 0);
+  // delay(500);
 }
 
 void act(int SushiNum) {
-  // int SushiNum = 3;
+  // M5.Lcd.fillScreen(RED);
   InitialPose();
   PickSushi(SushiNum);
   PickSara();
   PutSushiToSara();
   PutSushiToLane();
-  // DisposeSushi();
+  InitialPose();
 }
 
 void Dispose() {
+  // M5.Lcd.fillScreen(BLUE);
   InitialPose();
   DisposeSushi();
   InitialPose();
@@ -186,12 +192,14 @@ void InitialPose() {
   ResetAllServo();
 }
 
-void CheckDispose() {
-  int OrderVal = chrOrder->getValue();
-  Serial.print("ifDispose");
-  Serial.println(OrderVal);
-  if (OrderVal != -1) {
-    act(OrderVal) chrDispose->setValue(-1);
+void CheckOrder() {
+  String OrderStr = String(chrOrder->getValue());
+  Serial.print("OrderStr: ");
+  Serial.println(OrderStr);
+  if (OrderStr != "NO") {
+    chrOrder->setValue("NO");
+    int OrderVal = OrderStr.charAt(0) - 'A';
+    act(OrderVal);
   }
 }
 void PickSushi(int SushiNum) {
@@ -216,12 +224,16 @@ void PickSara() {
   ArmOrientation(0);
   MoveArmSync(219, -203, 209, 100);  // 皿サーバー
   ArmOrientation(0);
-  JumpArmSync(206, -203, 58, -180);  // 皿サーバー
+  JumpArmSync(209, -203, 58, -180);  // 皿サーバー
   servo_angle_write(Sashi, SashiExtend);
   delay(500);
 }
 void PutSushiToSara() {
+  servo_angle_write(Lifter, 40);
+  delay(500);
   servo_angle_write(Catcher, 0);
+  delay(500);
+  servo_angle_write(Lifter, 00);
   delay(500);
 }
 void PutSushiToLane() {
@@ -232,15 +244,16 @@ void PutSushiToLane() {
   ArmOrientation(1);
   MoveArmSync(370, -72, 230, -270);
   ArmOrientation(1);
-  JumpArmSync(170, 0, 230, -270);  // 初期位置くん
+  JumpArmSync(170, 0, 230, -270);
+  JumpArmSync(170, 0, 230, 0);  // 初期位置くん
 }
 void CheckDispose() {
   String ifDispose = String(chrDispose->getValue());
   Serial.print("ifDispose");
   Serial.println(ifDispose);
   if (ifDispose == "DISPOSE") {
-    Dispose();
     chrDispose->setValue("NO");
+    Dispose();
   }
 }
 
@@ -249,9 +262,11 @@ void DisposeSushi() {
   servo_angle_write(Lifter, 0);
   delay(500);
   ArmOrientation(1);
-  MoveArmSync(368, 11, 173, 90);
+  MoveArmSync(368, 11, 185, 90);
   servo_angle_write(Sashi, SashiExtend);
   delay(500);
+  ArmOrientation(1);
+  MoveArmSync(368, 11, 220, 90);
   ArmOrientation(0);
   JumpArmSync(127, -346, 166, -90);
   servo_angle_write(Sashi, 0);
@@ -296,7 +311,7 @@ void setup() {
   chrStatus->setValue("YET");
   chrCommand->setValue("Ping");
   chrDispose->setValue("NO");
-  chrDispose->setValue(0);
+  chrOrder->setValue("NO");
   chrA->setValue(0);
   chrB->setValue(0);
   chrC->setValue(0);
@@ -329,21 +344,14 @@ void loop() {
     if (button_state) {
       not_push_button();
       delay(500);
-      InitialPose();
     }
     button_state = false;
   }
+  CheckOrder();
   CheckDispose();
   // Now a card is selected. The UID and SAK is in mfrc522.uid.
 
-  // Dump UID
-  Serial.println();
-
-  // for (int i = 0; i < 16; i++) {
-  // setServoPulse(i, 2.5);
-  // }
   delay(500);
-  // delay(10);
 }
 
 void setServoPulse(uint8_t n, double pulse) {
@@ -397,6 +405,34 @@ void JumpArmSync(int X, int Y, int Z, int R) {
   Serial.print(R);
 
   chrCommand->setValue("JumpTo");
+  chrA->setValue(X);
+  chrB->setValue(Y);
+  chrC->setValue(Z);
+  chrD->setValue(R);
+  delay(10);
+  chrCommand->notify();
+
+  String Stats = "YET";
+  while (Stats == "YET") {
+    Stats = String(chrStatus->getValue());
+    Serial.print("Waiting!! Status: ");
+    Serial.println(Stats);
+    delay(100);
+  }
+  chrStatus->setValue("YET");
+}
+
+void MoveArmSync(int X, int Y, int Z, int R) {
+  Serial.print("Move Arm:");
+  Serial.print(X);
+  Serial.print(", ");
+  Serial.print(Y);
+  Serial.print(", ");
+  Serial.print(Z);
+  Serial.print(", ");
+  Serial.print(R);
+
+  chrCommand->setValue("GoTo");
   chrA->setValue(X);
   chrB->setValue(Y);
   chrC->setValue(Z);
